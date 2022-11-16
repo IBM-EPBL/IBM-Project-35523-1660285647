@@ -1,0 +1,478 @@
+&lt;!DOCTYPE HTML PUBLIC &quot;-
+//W3C//DTD HTML 4.01//EN&quot;
+&quot;http://www.w3.org/TR/html4/str
+ict.dtd&quot;&gt;
+
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta http-equiv=&quot;Content-Type&quot;
+content=&quot;text/html; charset=UTF-8&quot;&gt;
+&lt;title&gt;Artificial intelligence : OpenKore source
+code documentation&lt;/title&gt;
+&lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot;
+href=&quot;openkore.css&quot;&gt;
+&lt;!-- Fix broken PNG transparency for IE/Win5-6+ --
+&gt;
+&lt;!--[if gte IE 5.5000]&gt;
+&lt;script type=&quot;text/javascript&quot;
+src=&quot;pngfix.js&quot;&gt;&lt;/script&gt;
+&lt;![endif]--&gt;
+
+&lt;style type=&quot;text/css&quot;&gt;
+&lt;!--
+.example {
+margin: 0.3cm;
+margin-left: 0.5cm;
+}
+.comment {
+font-style: italic;
+}
+
+.term {
+border-bottom: 1px dotted black;
+}
+.cstr {
+color: #007700;
+}
+--&gt;
+&lt;/style&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div id=&quot;title&quot;&gt;OpenKore source code documentation&lt;/div&gt;
+
+&lt;div id=&quot;navigation&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a
+href=&quot;http://openkore.sourceforge.net/&quot;&gt;Main
+website&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;index.html&quot;&gt;Table of
+contents&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Artificial intelligence&lt;/b&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+
+&lt;div id=&quot;main&quot;&gt;
+
+&lt;h1&gt;How the AI subsystem is designed&lt;/h1&gt;
+
+The AI subsystem isn&#39;t really complex, but it could take a
+while to understand it&#39;s design.
+
+&lt;p&gt;
+All &quot;intelligence&quot; is handled inside the
+&lt;code&gt;AI()&lt;/code&gt; function (right now it&#39;s one big
+function but
+we hope to split it in the future).
+
+As explained in the &lt;a&gt;Main loop &amp;amp; initialization&lt;/a&gt;
+page, the &lt;code&gt;AI()&lt;/code&gt; function only runs less than
+a fraction of a second.
+
+&lt;p&gt;
+Basically, the AI tells Kore to do certain things based on
+the current situation. I&#39;ll try to explain it with some
+examples.
+
+&lt;a name=&quot;ex1&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Example 1: Random walk&lt;/h2&gt;
+
+You&#39;re probably familiar with Kore&#39;s random walk feature.
+If there are no monsters and Kore isn&#39;t doing anything, it
+will walk to a random spot on the map, and attack any
+monsters it encounters.
+The following piece of code (within the &lt;code&gt;AI()&lt;/code&gt;
+function makes Kore walk to a random spot if it isn&#39;t
+doing anything:
+&lt;pre class=&quot;example&quot;&gt;
+
+1 &lt;span class=&quot;comment&quot;&gt;##### RANDOM WALK
+
+#####&lt;/span&gt;
+
+2 &lt;b&gt;if&lt;/b&gt; ($config{&#39;route_randomWalk&#39;} &amp;&amp;
+
+$ai_seq[0]
+
+&lt;b&gt;eq&lt;/b&gt; &quot;&quot; &amp;&amp; @{$field{&#39;field&#39;}} &gt; 1 &amp;&amp;
+!$cities_lut{$field{&#39;name&#39;}.&#39;.rsw&#39;}) {
+3 &lt;span class=&quot;comment&quot;&gt;# Find a random block
+on the map that we can walk on&lt;/span&gt;
+
+4 &lt;b&gt;do&lt;/b&gt; {
+5 $ai_v{&#39;temp&#39;}{&#39;randX&#39;} = int(rand() *
+($field{&#39;width&#39;} - 1));
+6 $ai_v{&#39;temp&#39;}{&#39;randY&#39;} = int(rand() *
+($field{&#39;height&#39;} - 1));
+7 } &lt;b&gt;while&lt;/b&gt;
+($field{&#39;field&#39;}[$ai_v{&#39;temp&#39;}{&#39;randY&#39;}*$field{&#39;width&#39;} +
+$ai_v{&#39;temp&#39;}{&#39;randX&#39;}]);
+8
+9 &lt;span class=&quot;comment&quot;&gt;# Move to that block&lt;/span&gt;
+10 message &lt;span class=&quot;cstr&quot;&gt;&quot;Calculating random
+route to:
+$maps_lut{$field{&#39;name&#39;}.&#39;.rsw&#39;}($field{&#39;name&#39;}):
+$ai_v{&#39;temp&#39;}{&#39;randX&#39;}, $ai_v{&#39;temp&#39;}{&#39;randY&#39;}\n&quot;&lt;/span&gt;,
+&lt;span class=&quot;cstr&quot;&gt;&quot;route&quot;&lt;/span&gt;;
+11 ai_route(\%{$ai_v{&#39;temp&#39;}{&#39;returnHash&#39;}},
+12 $ai_v{&#39;temp&#39;}{&#39;randX&#39;},
+13 $ai_v{&#39;temp&#39;}{&#39;randY&#39;},
+14 $field{&#39;name&#39;},
+15 0,
+16 $config{&#39;route_randomWalk_maxRouteTime&#39;},
+17 2,
+18 undef,
+19 undef,
+20 1);
+
+21 }
+&lt;/pre&gt;
+We call this block of code an &lt;em class=&quot;term&quot;&gt;AI code
+block&lt;/em&gt;.
+In other words, an AI code block is &lt;em&gt;an entire block of
+code which deals with a certain part of the AI&lt;/em&gt;.
+
+&lt;h3&gt;Situation check&lt;/h3&gt;
+In line 1, it checks:
+&lt;ol&gt;
+&lt;li&gt;whether the configuration option
+&lt;code&gt;route_randomWalk&lt;/code&gt; is on&lt;/li&gt;
+&lt;li&gt;whether there are currently no other active &lt;em
+
+class=&quot;term&quot;&gt;AI sequences&lt;/em&gt; (see below)&lt;/li&gt;
+
+&lt;li&gt;whether we&#39;re currently NOT in a city &lt;/li&gt;
+&lt;/ol&gt;
+If all of the above is true, then Kore will run the code
+inside the brackets.
+
+&lt;p&gt;
+What is an &lt;em class=&quot;term&quot;&gt;AI sequence&lt;/em&gt;? It is a
+value within the &lt;code&gt;@ai_seq&lt;/code&gt; array.
+This array is a &lt;em&gt;command queue&lt;/em&gt;.
+
+&lt;p&gt;
+AI code blocks prepend values into this array so they can
+know when it&#39;s their turn to do something.
+When an AI code block is done with it&#39;s task, it will
+remove that value from the array.
+
+So, if &lt;code&gt;@ai_seq&lt;/code&gt; is empty, then that means all
+AI code blocks have finished and Kore isn&#39;t doing
+anything else.
+And this is when the random walk AI code block jumps in.
+
+&lt;p&gt;
+There is also the &lt;code&gt;@ai_seq_args&lt;/code&gt; array, used to
+store temporary variables used by the current AI code
+block.
+If a value is prepended into &lt;code&gt;@ai_seq&lt;/code&gt;, then a
+value must also be prepended into
+&lt;code&gt;@ai_seq_args&lt;/code&gt;.
+More on this later.
+
+&lt;h3&gt;Finding a random position to walk to&lt;/h3&gt;
+
+Line 4-7 tries to find a random position in the map that
+you can walk on.
+(&lt;code&gt;$field{field}&lt;/code&gt; is a reference to an array
+which contains information about which blocks you can and
+can&#39;t walk on.
+But that&#39;s not important in this example. You just have to
+understand what this block does.)
+
+&lt;p&gt;
+The result coordinate is put into these two variables:
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$ai_v{temp}{randX}&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;$ai_v{temp}{randY}&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;small&gt;(In case you didn&#39;t know, &lt;code&gt;$foo{bar}&lt;/code&gt; is
+the same as &lt;code&gt;$foo{&#39;bar&#39;}&lt;/code&gt;.)&lt;/small&gt;
+
+&lt;h3&gt;Moving&lt;/h3&gt;
+
+Line 11-20 is the code which tells Kore to move to the
+random position.
+It tells &lt;code&gt;ai_route()&lt;/code&gt; where it wants to go to.
+&lt;code&gt;ai_route()&lt;/code&gt; prepends a &lt;code&gt;&quot;route&quot;&lt;/code&gt;
+AI sequence in &lt;code&gt;@ai_seq&lt;/code&gt;, and arguments in a
+hash
+(which is then prepended into &lt;code&gt;@ai_seq_args&lt;/code&gt;
+and immediately returns.
+Shortly after this, the entire &lt;code&gt;AI()&lt;/code&gt; function
+returns.
+The point is, &lt;code&gt;ai_route()&lt;/code&gt; is &lt;em&gt;not
+synchronous&lt;/em&gt;.
+
+&lt;p&gt;
+In less than a fraction of a second, the
+&lt;code&gt;AI()&lt;/code&gt; function is called again.
+Because the &lt;code&gt;@ai_seq&lt;/code&gt; variable is not empty
+anymore, the random walk AI code block is never activated
+(the expression &lt;code&gt;&#39;$ai_seq[0] eq &quot;&quot;&#39;&lt;/code&gt; is false).
+
+&lt;p&gt;
+The AI code block that handles routing is elsewhere in the
+&lt;code&gt;AI()&lt;/code&gt; function.
+
+It sees that the first value in &lt;code&gt;@ai_seq&lt;/code&gt; is
+&lt;code&gt;&quot;route&quot;&lt;/code&gt;, and thinks &lt;em&gt;&quot;hey, now it&#39;s my
+turn to do something!&quot;&lt;/em&gt;.
+(The route AI code block is very complex so I&#39;m not going
+to explain what it does, but you get the idea.)
+When the route AI code block has finished, it will remove
+the first item from &lt;code&gt;@ai_seq&lt;/code&gt;.
+If &lt;code&gt;@ai_seq&lt;/code&gt; is empty, then the random route
+AI code block is activated again.
+
+&lt;h2&gt;Example 2: Attacking monsters while walking to a
+random spot&lt;/h2&gt;
+
+You might want to wonder how Kore is able to determine
+whether to attack monsters when it&#39;s walking.
+Let&#39;s take a look at a small piece of it&#39;s source code:
+&lt;pre class=&quot;example&quot;&gt;
+&lt;span class=&quot;comment&quot;&gt;##### AUTO-ATTACK #####&lt;/span&gt;
+
+&lt;b&gt;if&lt;/b&gt; (($ai_seq[0] &lt;b&gt;eq&lt;/b&gt; &lt;span
+class=&quot;cstr&quot;&gt;&quot;&quot;&lt;/span&gt; || $ai_seq[0] &lt;b&gt;eq&lt;/b&gt; &lt;span
+class=&quot;cstr&quot;&gt;&quot;route&quot;&lt;/span&gt; || $ai_seq[0] &lt;b&gt;eq&lt;/b&gt; &lt;span
+class=&quot;cstr&quot;&gt;&quot;route_getRoute&quot;&lt;/span&gt; || $ai_seq[0]
+&lt;b&gt;eq&lt;/b&gt; &lt;span class=&quot;cstr&quot;&gt;&quot;route_getMapRoute&quot;&lt;/span&gt;
+|| $ai_seq[0] &lt;b&gt;eq&lt;/b&gt; &lt;span class=&quot;cstr&quot;&gt;&quot;follow&quot;&lt;/span&gt;
+|| $ai_seq[0] &lt;b&gt;eq&lt;/b&gt; &lt;span
+class=&quot;cstr&quot;&gt;&quot;sitAuto&quot;&lt;/span&gt; || $ai_seq[0] &lt;b&gt;eq&lt;/b&gt;
+&lt;span class=&quot;cstr&quot;&gt;&quot;take&quot;&lt;/span&gt; || $ai_seq[0] &lt;b&gt;eq&lt;/b&gt;
+&lt;span class=&quot;cstr&quot;&gt;&quot;items_gather&quot;&lt;/span&gt; || $ai_seq[0]
+&lt;b&gt;eq&lt;/b&gt; &lt;span class=&quot;cstr&quot;&gt;&quot;items_take&quot;&lt;/span&gt;)
+...
+&lt;/pre&gt;
+
+As you can see here, the auto-attack AI code block is run
+if any of the above AI sequences are active.
+So when Kore is walking (&lt;code&gt;$ai_seq_args[0]&lt;/code&gt; is
+&quot;route&quot;), Kore continues to check for monsters to attack.
+
+&lt;p&gt;
+But as you may know, if you manually type &quot;move
+WhateEverMapName&quot; in the console, Kore will move to that
+map without attacking
+monsters (yes, this is intentional behavior). Why is that?
+
+&lt;p&gt;
+As seen in example 1, the &lt;code&gt;ai_route()&lt;/code&gt; function
+initializes the route AI sequence.
+That function accepts a parameter called &quot;attackOnRoute&quot;.
+&lt;code&gt;$ai_seq_args[0]{attackOnRoute}&lt;/code&gt; is set to the
+same value as this parameter.
+Kore will only attack monsters while moving, if that
+parameter is set to 1.
+When you type &quot;move&quot; in the console, that parameter is set
+to 0. The random walk AI code block however sets that
+parameter to 1.
+
+&lt;p&gt;
+Inside the auto-attack AI code block, Kore checks whether
+the argument hash that&#39;s associated with the &quot;route&quot; AI
+sequence has a
+&#39;attackOnRoute&#39; key, and whether the value is 1.
+&lt;pre class=&quot;example&quot;&gt;
+...
+$ai_v{&#39;temp&#39;}{&#39;ai_route_index&#39;} = binFind(\@ai_seq,
+&lt;span class=&quot;cstr&quot;&gt;&quot;route&quot;&lt;/span&gt;);
+
+&lt;b&gt;if&lt;/b&gt; ($ai_v{&#39;temp&#39;}{&#39;ai_route_index&#39;} ne &lt;span
+class=&quot;cstr&quot;&gt;&quot;&quot;&lt;/span&gt;) {
+$ai_v{&#39;temp&#39;}{&#39;ai_route_attackOnRoute&#39;} =
+$ai_seq_args[$ai_v{&#39;temp&#39;}{&#39;ai_route_index&#39;}]{&#39;attackOnRo
+ute&#39;};
+}
+...
+&lt;span class=&quot;comment&quot;&gt;# Somewhere else in the
+autoattack AI code block, Kore checks whether
+# $ai_v{&#39;temp&#39;}{&#39;ai_route_attackOnRoute&#39;} is set to
+1.&lt;/span&gt;
+&lt;/pre&gt;
+
+&lt;h2&gt;Timeouts: To wait a while before doing something&lt;/h2&gt;
+
+In certain cases you may want the program to wait a while
+before doing anything else.
+For example, you may want to send a &quot;talk to NPC&quot; packet
+to the server, then send a &quot;choose NPC menu item 2&quot; packet
+2 seconds later.
+
+&lt;p&gt;
+The first thing you would think of is probably to use the
+&lt;code&gt;sleep()&lt;/code&gt; function.
+However, that is a bad idea. &lt;code&gt;sleep()&lt;/code&gt; blocks
+the entire program. During the sleep, nothing else can be
+performed.
+User command input will not work, other AI sequences are
+not run, network data is not received, etc.
+&lt;p&gt;
+
+The right thing to do is to use the &lt;a
+href=&quot;Utils.html#timeOut&quot;&gt;&lt;code&gt;timeOut()&lt;/code&gt;&lt;/a&gt;
+function.
+The API documentation entry for that function has two
+examples. Here&#39;s another example, demonstrating how
+you can use the timeOut() function in an AI sequence. This example initializes a
+
+conversation with NPC 1337 (a
+Kapra NPC).
+Then two seconds later, it sends a &quot;choose NPC menu item
+2&quot; packet.
+&lt;pre class=&quot;example&quot;&gt;
+&lt;span class=&quot;comment&quot;&gt;# The AI() function is run in the
+main loop&lt;/span&gt;
+&lt;b&gt;sub&lt;/b&gt; AI {
+...
+&lt;b&gt;if&lt;/b&gt; ($somethingHappened) {
+&lt;b&gt;my&lt;/b&gt; %args;
+$args{stage} = &lt;span class=&quot;cstr&quot;&gt;&#39;Just
+
+started&#39;&lt;/span&gt;;
+
+&lt;b&gt;unshift&lt;/b&gt; @ai_seq, &lt;span
+
+class=&quot;cstr&quot;&gt;&quot;NpcExample&quot;&lt;/span&gt;;
+
+&lt;b&gt;unshift&lt;/b&gt; @ai_seq_args, \%args;
+
+$somethingHappened = 0;
+}
+
+&lt;b&gt;if&lt;/b&gt; ($ai_seq[0] &lt;b&gt;eq&lt;/b&gt; &lt;span
+class=&quot;cstr&quot;&gt;&quot;NpcExample&quot;&lt;/span&gt;) {
+
+&lt;b&gt;if&lt;/b&gt; ($ai_seq_args[0]{stage}
+&lt;b&gt;eq&lt;/b&gt; &lt;span class=&quot;cstr&quot;&gt;&#39;Just started&#39;&lt;/span&gt;) {
+
+&lt;span class=&quot;comment&quot;&gt;# This AI
+
+sequence just started
+
+# Initialize a conversation with
+
+NPC 1337&lt;/span&gt;
+sendTalk($net, 1337);
+
+&lt;span class=&quot;comment&quot;&gt;# Store the
+
+current time in a variable&lt;/span&gt;
+
+$ai_seq_args[0]{waitTwoSecs}{time} = &lt;b&gt;time&lt;/b&gt;;
+&lt;span class=&quot;comment&quot;&gt;# We want to
+
+wait two seconds&lt;/span&gt;
+
+$ai_seq_args[0]{waitTwoSecs}{timeout} = 2;
+
+$ai_seq_args[0]{stage} = &lt;span
+class=&quot;cstr&quot;&gt;&#39;Initialized conversation&#39;&lt;/span&gt;;
+
+} &lt;b&gt;elsif&lt;/b&gt; ($ai_seq_args[0]{stage}
+
+&lt;b&gt;eq&lt;/b&gt; &lt;span class=&quot;cstr&quot;&gt;&#39;Initialized
+conversation&#39;&lt;/span&gt;
+
+&lt;span class=&quot;comment&quot;&gt;# This &#39;if&#39;
+statement is only true if two seconds have passed
+
+# since
+
+$ai_seq_args[0]{waitTwoSecs}{time} is set&lt;/span&gt;
+
+&amp;&amp; timeOut(
+$ai_seq_args[0]{waitTwoSecs} )
+
+) {
+&lt;span class=&quot;comment&quot;&gt;# Two
+
+seconds have now passed&lt;/span&gt;
+
+sendTalkResponse($net, 1337, 2);
+&lt;span class=&quot;comment&quot;&gt;# We&#39;re
+
+done; remove this AI sequence&lt;/span&gt;
+
+&lt;b&gt;shift&lt;/b&gt; @ai_seq;
+&lt;b&gt;shift&lt;/b&gt; @ai_seq_args;
+}
+}
+...
+}
+&lt;/pre&gt;
+
+&lt;h2&gt;Conclusion &amp;amp; summary&lt;/h2&gt;
+
+The entire AI subsystem is kept together by these two
+variables:
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;@ai_seq&lt;/code&gt; : a queue which contains AI
+sequence names.
+Usually, AI code blocks are run based on the value of the
+first item in the queue
+(though this doesn&#39;t have to be true; it depends on how
+the AI code block is programmed).&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;@ai_seq_args&lt;/code&gt; : contains arguments that&#39;s
+associated with current AI sequence.&lt;/li&gt;
+&lt;/ul&gt;
+
+The design is pretty simple. This allows the system to be
+very flexible:
+you can do pretty much anything you want. There aren&#39;t
+many real limitations
+(but that&#39;s just my opinion).
+
+&lt;p&gt;
+The &lt;code&gt;AI()&lt;/code&gt; function runs only very shortly. So
+AI code blocks shouldn&#39;t do anything that can block the
+function for a long time.
+
+&lt;h3&gt;Glossary&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;An &lt;em class=&quot;term&quot;&gt;AI code block&lt;/em&gt; is an entire
+block of code which deals with a certain part of the
+AI.&lt;/li&gt;
+&lt;li&gt;An &lt;em class=&quot;term&quot;&gt;AI sequence&lt;/em&gt; is a value within
+the &lt;code&gt;@ai_seq&lt;/code&gt; queue (and an associated value
+inside the &lt;code&gt;@ai_seq_args&lt;/code&gt; array).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;hr&gt;&lt;p&gt;
+
+&lt;div id=&quot;footer&quot;&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a
+href=&quot;http://validator.w3.org/check?uri=referer&quot;
+title=&quot;Valid HTML 4.01!&quot;&gt;&lt;img
+src=&quot;http://www.w3.org/Icons/valid-html401&quot; alt=&quot;Valid
+HTML 4.01!&quot; height=&quot;31&quot; width=&quot;88&quot;&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a
+href=&quot;http://www.mozilla.org/products/firefox/&quot; title=&quot;Get
+Firefox - Take Back the Web&quot;&gt;&lt;img width=&quot;104&quot; height=&quot;32&quot;
+src=&quot;http://www.mozilla.org/products/firefox/buttons/getf
+irefox_small.png&quot; alt=&quot;Get Firefox - Take Back the
+Web&quot;&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a
+
+href=&quot;http://www.mozilla.org/products/firefox/&quot; title=&quot;If
+you were looking at this page in any browser but
+Microsoft Internet Explorer, it would look and run better
+and faster&quot;&gt;&lt;img width=&quot;45&quot; height=&quot;45&quot;
+src=&quot;http://linuxart.com/img/noIE-small.png&quot; alt=&quot;If you
+were looking at this page in any browser but Microsoft
+Internet Explorer, it would look and run better and
+faster&quot;&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
